@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測試紀錄工具</title>
+    <style>
+        /* CSS 樣式 */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 90%;
+            max-width: 1000px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .summary {
+            font-size: 1.2em;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .summary.pass {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .summary.fail {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .test-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button.pass {
+            background-color: #28a745;
+        }
+
+        button.fail {
+            background-color: #dc3545;
+        }
+
+        #results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        #results-table th, #results-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        #results-table th {
+            background-color: #f2f2f2;
+        }
+
+        .pass {
+            color: green;
+        }
+
+        .fail {
+            color: red;
+        }
+
+        .fail-reason {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        /* 報告表格樣式 */
+        #report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #report-table th, #report-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+
+        #report-table th {
+            background-color: #343a40;
+            color: #fff;
+            font-weight: bold;
+        }
+
+        #report-table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* 製作人署名樣式 */
+        .footer {
+            margin-top: 20px;
+            font-size: 0.8em;
+            color: #888;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>測試紀錄工具</h1>
+
+    <div class="header">
+        <div class="summary pass">
+            <p>Pass 總次數: <span id="pass-count">0</span></p>
+        </div>
+        <div class="summary fail">
+            <p>Fail 總次數: <span id="fail-count">0</span></p>
+        </div>
+    </div>
+
+    <div class="test-buttons">
+        <button class="pass" onclick="app.logTestResult('Pass')">Pass</button>
+        <button class="fail" onclick="app.logTestResult('Fail')">Fail</button>
+    </div>
+
+    <table id="results-table">
+        <thead>
+        <tr>
+            <th>次數</th>
+            <th>結果</th>
+            <th>Fail 原因</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- 報告表格 -->
+<table id="report-table">
+    <thead>
+    <tr>
+        <th>PASS 總次數</th>
+        <th>FAIL 總次數</th>
+        <th>Fail 原因 (次數)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td id="report-pass-count">0</td>
+        <td id="report-fail-count">0</td>
+        <td id="report-fail-reasons"></td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="footer">
+    <p>Producer：Ren Liao</p>
+</div>
+
+<script>
+const app = (function () {
+    let testCount = 0;
+    let passCount = 0;
+    let failCount = 0;
+    let testResults = [];
+
+    // DOM 元素引用
+    const resultsTableBody = document.querySelector('#results-table tbody');
+    const passCountSpan = document.getElementById('pass-count');
+    const failCountSpan = document.getElementById('fail-count');
+    const reportPassCount = document.getElementById('report-pass-count');
+    const reportFailCount = document.getElementById('report-fail-count');
+    const reportFailReasons = document.getElementById('report-fail-reasons');
+
+    // 封裝更新總數的方法
+    function updateSummary() {
+        passCountSpan.textContent = passCount;
+        failCountSpan.textContent = failCount;
+    }
+
+    // 封裝更新報告的方法
+    function updateReportTable() {
+        reportPassCount.textContent = passCount;
+        reportFailCount.textContent = failCount;
+
+        let failReasonMap = new Map();
+
+        testResults.forEach((item, index) => {
+            if (item.result === 'Fail' && !item.deleted) {
+                const reason = item.reason || '無';
+                if (failReasonMap.has(reason)) {
+                    failReasonMap.get(reason).push(getDisplayCount(index)); // 儲存第幾次Fail
+                } else {
+                    failReasonMap.set(reason, [index + 1]);
+                }
+            }
+        });
+
+        let reportHTML = '';
+        failReasonMap.forEach((counts, reason) => {
+            reportHTML += `原因: ${reason} (第 ${counts.join(', ')} 次)<br>`;
+        });
+
+        reportFailReasons.innerHTML = reportHTML;
+    }
+
+    // 修改原因
+    function updateReason(index, reason) {
+        testResults[index] = {...testResults[index], reason};
+        updateReportTable();
+    }
+
+    // 取得目前次數(重新計算後)
+     function getDisplayCount(index) {
+        let displayCount = 0;
+        for (let i = 0; i <= index; i++) {
+            if (!testResults[i].deleted) {
+                displayCount++;
+            }
+        }
+        return displayCount;
+    }
+
+
+    // 紀錄測試結果
+    function logTestResult(result) {
+        const newEntry = {
+            count: testCount + 1,
+            result: result,
+            reason: '',
+            deleted: false
+        };
+
+        testResults.push(newEntry);
+        updateTestResults();
+
+    }
+
+    function updateTestResults() {
+         // Reset the counters
+        testCount = 0;
+        passCount = 0;
+        failCount = 0;
+
+        // Clear the table body
+        resultsTableBody.innerHTML = '';
+
+        // Repopulate the table with the filtered testResults
+        let displayCount = 0;
+        testResults.forEach((item, index) => {
+            if (!item.deleted) {
+                displayCount++;
+                const row = resultsTableBody.insertRow();
+
+                const cellCount = row.insertCell(0);
+                cellCount.textContent = displayCount;
+
+                const cellResult = row.insertCell(1);
+                cellResult.textContent = item.result;
+                cellResult.classList.add(item.result.toLowerCase());
+
+                const cellReason = row.insertCell(2);
+                let reasonInput = '';
+                if (item.result === 'Fail') {
+                    reasonInput = `<input type="text" class="fail-reason" placeholder="輸入 Fail 原因" onchange="app.updateReason(${index}, this.value)">`;
+                }
+                cellReason.innerHTML = reasonInput;
+
+                const cellAction = row.insertCell(3);
+                cellAction.innerHTML = `<button onclick="app.correctResult(${index})">更正</button>
+                                  <button onclick="app.deleteResult(${index})">刪除</button>`;
+
+            }
+        });
+          // Recalculate the counts after repopulating the table
+        recalculateCounts();
+        updateReportTable();
+    }
+
+    // 刪除指定 index 的測試結果
+    function deleteResult(index) {
+        testResults[index] = {...testResults[index], deleted: true};
+        updateTestResults();
+    }
+
+    // 更正測試結果
+    function correctResult(index) {
+        const newResult = prompt("請輸入正確的結果 (Pass 或 Fail):").trim();
+        if (newResult && (newResult.toLowerCase() === 'pass' || newResult.toLowerCase() === 'fail')) {
+            testResults[index] = {...testResults[index], result: newResult, reason:''};
+            updateTestResults();
+        } else {
+            alert("輸入的結果無效。");
+        }
+    }
+
+    // 重新計算所有總數
+     function recalculateCounts() {
+        passCount = 0;
+        failCount = 0;
+        testCount = 0;
+
+        testResults.forEach(item => {
+            if (!item.deleted) {
+                testCount++;
+                if (item.result === 'Pass') {
+                    passCount++;
+                } else {
+                    failCount++;
+                }
+            }
+        });
+        updateSummary();
+    }
+
+    return {
+        logTestResult,
+        correctResult,
+        updateReason,
+        deleteResult,
+
+    };
+})();
+</script>
+</body>
+</html>
