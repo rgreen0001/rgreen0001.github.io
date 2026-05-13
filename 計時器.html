@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>專業運動計時器 (含準備倒數)</title>
+    <style>
+        :root { --primary: #007AFF; --success: #34C759; --danger: #FF3B30; --prepare: #FF9500; --bg: #1C1C1E; }
+        body { font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: var(--bg); color: white; margin: 0; }
+        .card { background: #2C2C2E; padding: 2.5rem; border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); text-align: center; width: 340px; }
+        .timer-display { font-size: 5rem; font-family: 'Courier New', monospace; font-weight: bold; margin: 20px 0; color: var(--success); text-shadow: 0 0 20px rgba(52, 199, 89, 0.3); }
+        .preparing .timer-display { color: var(--prepare); text-shadow: 0 0 20px rgba(255, 149, 0, 0.3); }
+        .input-row { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 25px; }
+        .input-group { flex: 1; text-align: left; }
+        label { font-size: 12px; color: #8E8E93; text-transform: uppercase; }
+        input { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 18px; margin-top: 5px; background: #3A3A3C; color: white; box-sizing: border-box; outline: none; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        button { padding: 15px; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; opacity: 0.9; }
+        button:hover { opacity: 1; transform: scale(1.02); }
+        .btn-start { background: var(--success); color: white; grid-column: span 2; }
+        .btn-pause { background: var(--primary); color: white; }
+        .btn-reset { background: var(--danger); color: white; }
+        .status-badge { display: inline-block; padding: 6px 16px; border-radius: 50px; background: #3A3A3C; font-size: 14px; margin-bottom: 10px; color: #E5E5EA; }
+    </style>
+</head>
+<body>
+
+<div class="card" id="mainCard">
+    <div id="status" class="status-badge">READY</div>
+    <div class="timer-display" id="timer">00:00</div>
+    
+    <div class="input-row">
+        <div class="input-group">
+            <label>每回合(秒)</label>
+            <input type="number" id="sec" value="30">
+        </div>
+        <div class="input-group">
+            <label>總次數</label>
+            <input type="number" id="loop" value="5">
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-start" id="startBtn">開始挑戰</button>
+        <button class="btn-pause" id="pauseBtn" style="display:none;">暫停</button>
+        <button class="btn-reset" id="resetBtn">取消</button>
+    </div>
+</div>
+
+<script>
+    let timeLeft, totalLoops, currentLoop, timerId;
+    let isPaused = false;
+    let isPreparing = false;
+    
+    const beep = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+    const longBeep = new Audio('https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg'); // 結束音效
+
+    const display = document.getElementById('timer');
+    const status = document.getElementById('status');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const card = document.getElementById('mainCard');
+
+    function formatTime(s) {
+        const m = Math.floor(s / 60).toString().padStart(2, '0');
+        const sec = (s % 60).toString().padStart(2, '0');
+        return `${m}:${sec}`;
+    }
+
+    function runWorkout() {
+        if (timeLeft > 0) {
+            timeLeft--;
+            display.innerText = formatTime(timeLeft);
+        } else {
+            beep.play();
+            if (currentLoop < totalLoops) {
+                currentLoop++;
+                timeLeft = parseInt(document.getElementById('sec').value);
+                status.innerText = `ROUND ${currentLoop} / ${totalLoops}`;
+                display.innerText = formatTime(timeLeft);
+            } else {
+                finish();
+            }
+        }
+    }
+
+    function runPrepare() {
+        if (timeLeft > 1) {
+            timeLeft--;
+            display.innerText = timeLeft;
+            beep.play();
+        } else {
+            // 準備結束，正式開始
+            isPreparing = false;
+            card.classList.remove('preparing');
+            currentLoop = 1;
+            timeLeft = parseInt(document.getElementById('sec').value);
+            status.innerText = `ROUND 1 / ${totalLoops}`;
+            display.innerText = formatTime(timeLeft);
+            clearInterval(timerId);
+            timerId = setInterval(runWorkout, 1000);
+        }
+    }
+
+    startBtn.onclick = () => {
+        totalLoops = parseInt(document.getElementById('loop').value);
+        if (isNaN(totalLoops) || totalLoops <= 0) return;
+
+        // 進入準備階段
+        isPreparing = true;
+        timeLeft = 3; // 3秒準備
+        card.classList.add('preparing');
+        status.innerText = "PREPARING...";
+        display.innerText = timeLeft;
+        
+        startBtn.style.display = "none";
+        pauseBtn.style.display = "block";
+        pauseBtn.innerText = "暫停";
+        
+        clearInterval(timerId);
+        timerId = setInterval(runPrepare, 1000);
+    };
+
+    pauseBtn.onclick = () => {
+        if (!isPaused) {
+            clearInterval(timerId);
+            pauseBtn.innerText = "繼續";
+            status.innerText = "PAUSED";
+        } else {
+            timerId = setInterval(isPreparing ? runPrepare : runWorkout, 1000);
+            pauseBtn.innerText = "暫停";
+            status.innerText = isPreparing ? "PREPARING..." : `ROUND ${currentLoop} / ${totalLoops}`;
+        }
+        isPaused = !isPaused;
+    };
+
+    function finish() {
+        clearInterval(timerId);
+        status.innerText = "COMPLETE!";
+        display.innerText = "DONE";
+        startBtn.style.display = "block";
+        pauseBtn.style.display = "none";
+        card.classList.remove('preparing');
+    }
+
+    document.getElementById('resetBtn').onclick = () => {
+        clearInterval(timerId);
+        display.innerText = "00:00";
+        status.innerText = "READY";
+        startBtn.style.display = "block";
+        pauseBtn.style.display = "none";
+        card.classList.remove('preparing');
+        isPaused = false;
+    };
+</script>
+
+</body>
+</html>
