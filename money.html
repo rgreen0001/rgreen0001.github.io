@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>薪資計算器 - 週日開始版</title>
-    <!-- 引入 Flatpickr (日曆) 與 SheetJS (Excel) -->
+    <title>薪資計算器 - 記憶儲存版</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
@@ -20,8 +19,14 @@
         button { padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .btn-add { background-color: #1a73e8; color: white; width: 100%; margin-top: 15px; font-size: 16px; }
         .btn-add:hover { background-color: #1557b0; }
-        .btn-export { background-color: #28a745; color: white; margin-top: 20px; width: 100%; font-size: 16px; }
+        
+        /* 按鈕區塊樣式 */
+        .action-group { display: flex; gap: 15px; margin-top: 20px; }
+        .btn-save { background-color: #f39c12; color: white; flex: 1; font-size: 16px; }
+        .btn-save:hover { background-color: #e67e22; }
+        .btn-export { background-color: #28a745; color: white; flex: 1; font-size: 16px; }
         .btn-export:hover { background-color: #218838; }
+        
         table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
         th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: center; }
         th { background-color: #f1f3f4; color: #555; }
@@ -34,13 +39,13 @@
 <body>
 
 <div class="container">
-    <h2>時薪計算系統 (週日開始版)</h2>
+    <h2>時薪計算系統 (記憶儲存版)</h2>
 
     <div class="section">
         <div class="input-group">
             <div class="input-item">
                 <label>設定時薪 (TWD):</label>
-                <input type="number" id="hourlyRate" value="196">
+                <input type="number" id="hourlyRate" value="196" onchange="autoSaveSettings()">
             </div>
             <div class="input-item">
                 <label>選擇工作日期 (可多選):</label>
@@ -49,7 +54,7 @@
             </div>
             <div class="input-item">
                 <label>預設時數:</label>
-                <input type="number" id="defaultHours" value="8" step="0.5">
+                <input type="number" id="defaultHours" value="8" step="0.5" onchange="autoSaveSettings()">
             </div>
         </div>
         <button class="btn-add" onclick="batchAdd()">批次新增至清單</button>
@@ -71,7 +76,10 @@
         總計應領金額: $<span id="totalAmount">0</span>
     </div>
 
-    <button class="btn-export" onclick="exportToExcel()">💾 匯出 Excel 檔案</button>
+    <div class="action-group">
+        <button class="btn-save" onclick="saveToStorage()">💾 儲存目前紀錄</button>
+        <button class="btn-export" onclick="exportToExcel()"> Excel 匯出明細</button>
+    </div>
 </div>
 
 <script>
@@ -86,6 +94,12 @@
             firstDayOfWeek: 0 // 0 代表星期日
         }
     });
+
+    // 網頁載入時自動執行
+    window.onload = function() {
+        loadSettings(); // 載入時薪與預設工時
+        loadRecords();  // 載入歷史紀錄
+    };
 
     function updateDisplay() {
         const tbody = document.querySelector('#recordTable tbody');
@@ -127,7 +141,7 @@
             }
         });
 
-        fp.clear(); // 新增完畢自動清空選擇器[cite: 1]
+        fp.clear(); // 新增完畢自動清空選擇器
         updateDisplay();
     }
 
@@ -139,6 +153,38 @@
     function deleteRecord(index) {
         records.splice(index, 1);
         updateDisplay();
+    }
+
+    // 將紀錄儲存至瀏覽器
+    function saveToStorage() {
+        localStorage.setItem('salary_records', JSON.stringify(records));
+        alert("資料已成功儲存至瀏覽器！下次開啟將自動載入。");
+    }
+
+    // 自動儲存設定欄位 (時薪、預設時數)
+    function autoSaveSettings() {
+        const rate = document.getElementById('hourlyRate').value;
+        const defHours = document.getElementById('defaultHours').value;
+        localStorage.setItem('salary_rate', rate);
+        localStorage.setItem('salary_defHours', defHours);
+        updateDisplay(); // 即時重算金額
+    }
+
+    // 從瀏覽器讀取歷史紀錄
+    function loadRecords() {
+        const stored = localStorage.getItem('salary_records');
+        if (stored) {
+            records = JSON.parse(stored);
+            updateDisplay();
+        }
+    }
+
+    // 從瀏覽器讀取欄位設定
+    function loadSettings() {
+        const storedRate = localStorage.getItem('salary_rate');
+        const storedDefHours = localStorage.getItem('salary_defHours');
+        if (storedRate) document.getElementById('hourlyRate').value = storedRate;
+        if (storedDefHours) document.getElementById('defaultHours').value = storedDefHours;
     }
 
     function exportToExcel() {
