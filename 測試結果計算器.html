@@ -1,11 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>測試紀錄工具</title>
+    <title>測試計算機 (四排顯示)</title>
     <style>
-        /* CSS 樣式 */
         body {
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
@@ -21,8 +18,9 @@
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             padding: 30px;
-            width: 90%;
-            max-width: 1000px;
+            width: 95%; /* 調整容器寬度 */
+            max-width: 1400px; /* 設定最大寬度 */
+            position: relative; /* 為了絕對定位計時器 */
         }
 
         h1 {
@@ -31,34 +29,26 @@
             margin-bottom: 20px;
         }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .input-group {
             margin-bottom: 20px;
-        }
-
-        .summary {
-            font-size: 1.2em;
-            padding: 10px;
-            border-radius: 5px;
-        }
-
-        .summary.pass {
-            background-color: #d4edda;
-            color: #155724;
-        }
-
-        .summary.fail {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-
-        .test-buttons {
             display: flex;
             justify-content: center;
-            gap: 10px;
-            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        label {
+            display: inline-block;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        input[type="text"] {
+            width: 200px; /* 調整輸入框寬度 */
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
         }
 
         button {
@@ -66,38 +56,39 @@
             color: #fff;
             border: none;
             padding: 10px 20px;
-            font-size: 1em;
+            font-size: 0.9em;
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s;
+            margin-left: 5px;
         }
 
         button:hover {
             background-color: #0056b3;
         }
 
-        button.pass {
-            background-color: #28a745;
-        }
-
-        button.fail {
-            background-color: #dc3545;
-        }
-
-        #results-table {
-            width: 100%;
-            border-collapse: collapse;
+        #test-items-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
             margin-bottom: 20px;
         }
 
-        #results-table th, #results-table td {
+        .test-item {
+            width: calc(25% - 10px); /* 每列顯示四個項目，並減去間距 */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: flex-start;
+            padding: 10px;
             border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
+            border-radius: 5px;
+            margin: 5px;
+            box-sizing: border-box;
         }
 
-        #results-table th {
-            background-color: #f2f2f2;
+        .result {
+            font-weight: bold;
         }
 
         .pass {
@@ -108,267 +99,280 @@
             color: red;
         }
 
-        .fail-reason {
-            width: 100%;
-            padding: 5px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box;
+        .test-count {
+            margin-left: 10px;
+            font-size: 0.9em;
+            color: #777;
         }
 
-        /* 報告表格樣式 */
-        #report-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 30px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            background-color: #fff;
-            border-radius: 10px;
-            overflow: hidden;
+        .summary {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            text-align: left;
         }
 
-        #report-table th, #report-table td {
-            border: 1px solid #ddd;
-            padding: 12px;
+        .summary .pass-label {
+            color: #155724;
+            background-color: #d4edda;
+            padding: 3px 6px;
+            border-radius: 5px;
+            margin-right: 5px;
+        }
+
+        .summary .fail-label {
+            color: #721c24;
+            background-color: #f8d7da;
+            padding: 3px 6px;
+            border-radius: 5px;
+            margin-left: 5px;
+        }
+
+        /* 新增的 Producer 樣式 */
+        .producer {
+            margin-top: 20px;
+            font-size: 0.8em;
+            color: #555;
             text-align: center;
         }
 
-        #report-table th {
-            background-color: #343a40;
-            color: #fff;
-            font-weight: bold;
+        /* 新增的計時器樣式 */
+        #timer-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            align-items: center;
         }
 
-        #report-table tbody tr:nth-child(even) {
-            background-color: #f9f9f9;
+        #timer {
+            font-size: 1.2em;
+            color: #333;
+            margin-right: 10px;
         }
 
-        /* 製作人署名樣式 */
-        .footer {
-            margin-top: 20px;
-            font-size: 0.8em;
-            color: #888;
-            text-align: right;
+        #timer-input-container {
+            display: flex;
+            margin-right: 10px;
+        }
+
+        #timer-input-container input {
+            width: 40px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1em;
+            margin-right: 5px;
         }
     </style>
 </head>
 <body>
-<div class="container">
-    <h1>測試紀錄工具</h1>
+    <div class="container">
+        <div id="timer-container">
+            <div id="timer">00:00:00</div>
+            <div id="timer-input-container">
+                <input type="number" id="hours-input" placeholder="時" value="0">
+                <input type="number" id="minutes-input" placeholder="分" value="0">
+                <input type="number" id="seconds-input" placeholder="秒" value="0">
+            </div>
+            <button onclick="startTimer()">開始</button>
+            <button onclick="stopTimer()">停止</button>
+            <button onclick="resetTimer()">重置</button>
+            <button onclick="stopSound()">停止音效</button> <!-- 新增停止音效按鈕 -->
+        </div>
+        <h1>測試計算機</h1>
 
-    <div class="header">
-        <div class="summary pass">
-            <p>Pass 總次數: <span id="pass-count">0</span></p>
+        <div class="input-group">
+            <label for="new-test-item">新增測試項目:</label>
+            <input type="text" id="new-test-item" placeholder="請輸入測試項目名稱">
+            <button onclick="addTestItem()">新增</button>
         </div>
-        <div class="summary fail">
-            <p>Fail 總次數: <span id="fail-count">0</span></p>
+
+        <div id="test-items-container">
+            <!-- 測試項目將會新增在此 -->
         </div>
+
+        <!-- 新增的 Producer 資訊 -->
+        <div class="producer">
+            <p>Producer: Ren Liao</p>
+        </div>
+
+        <!-- 音訊元素 -->
+        <audio id="alarm-sound" src="alarm.mp3" preload="auto"></audio>
     </div>
 
-    <div class="test-buttons">
-        <button class="pass" onclick="app.logTestResult('Pass')">Pass</button>
-        <button class="fail" onclick="app.logTestResult('Fail')">Fail</button>
-    </div>
+    <script>
+        const testItemsContainer = document.getElementById('test-items-container');
+        const newTestItemInput = document.getElementById('new-test-item');
+        const timerDisplay = document.getElementById('timer');
+        const hoursInput = document.getElementById('hours-input');
+        const minutesInput = document.getElementById('minutes-input');
+        const secondsInput = document.getElementById('seconds-input');
+        const alarmSound = document.getElementById('alarm-sound');
 
-    <table id="results-table">
-        <thead>
-        <tr>
-            <th>次數</th>
-            <th>結果</th>
-            <th>Fail 原因</th>
-            <th>操作</th>
-        </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-</div>
+        let startTime = null;
+        let timerInterval;
+        let timeLeft;
+        let soundPlaying = false; // 追蹤音效是否正在播放
 
-<!-- 報告表格 -->
-<table id="report-table">
-    <thead>
-    <tr>
-        <th>PASS 總次數</th>
-        <th>FAIL 總次數</th>
-        <th>Fail 原因 (次數)</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-        <td id="report-pass-count">0</td>
-        <td id="report-fail-count">0</td>
-        <td id="report-fail-reasons"></td>
-    </tr>
-    </tbody>
-</table>
+        function startTimer() {
+            const hours = parseInt(hoursInput.value) || 0;
+            const minutes = parseInt(minutesInput.value) || 0;
+            const seconds = parseInt(secondsInput.value) || 0;
 
-<div class="footer">
-    <p>Producer：Ren Liao</p>
-</div>
+            timeLeft = hours * 3600 + minutes * 60 + seconds;
 
-<script>
-const app = (function () {
-    let testCount = 0;
-    let passCount = 0;
-    let failCount = 0;
-    let testResults = [];
-
-    // DOM 元素引用
-    const resultsTableBody = document.querySelector('#results-table tbody');
-    const passCountSpan = document.getElementById('pass-count');
-    const failCountSpan = document.getElementById('fail-count');
-    const reportPassCount = document.getElementById('report-pass-count');
-    const reportFailCount = document.getElementById('report-fail-count');
-    const reportFailReasons = document.getElementById('report-fail-reasons');
-
-    // 封裝更新總數的方法
-    function updateSummary() {
-        passCountSpan.textContent = passCount;
-        failCountSpan.textContent = failCount;
-    }
-
-    // 封裝更新報告的方法
-    function updateReportTable() {
-        reportPassCount.textContent = passCount;
-        reportFailCount.textContent = failCount;
-
-        let failReasonMap = new Map();
-
-        testResults.forEach((item, index) => {
-            if (item.result === 'Fail' && !item.deleted) {
-                const reason = item.reason || '無';
-                if (failReasonMap.has(reason)) {
-                    failReasonMap.get(reason).push(getDisplayCount(index)); // 儲存第幾次Fail
-                } else {
-                    failReasonMap.set(reason, [index + 1]);
-                }
+            if (timeLeft <= 0) {
+                alert("請輸入有效的時間");
+                return;
             }
-        });
 
-        let reportHTML = '';
-        failReasonMap.forEach((counts, reason) => {
-            reportHTML += `原因: ${reason} (第 ${counts.join(', ')} 次)<br>`;
-        });
+            startTime = new Date().getTime();
+            updateTimer(); // 立即更新一次
+            timerInterval = setInterval(updateTimer, 1000);
 
-        reportFailReasons.innerHTML = reportHTML;
-    }
-
-    // 修改原因
-    function updateReason(index, reason) {
-        testResults[index] = {...testResults[index], reason};
-        updateReportTable();
-    }
-
-    // 取得目前次數(重新計算後)
-     function getDisplayCount(index) {
-        let displayCount = 0;
-        for (let i = 0; i <= index; i++) {
-            if (!testResults[i].deleted) {
-                displayCount++;
-            }
+            // 停用輸入框，避免在計時期間修改
+            hoursInput.disabled = true;
+            minutesInput.disabled = true;
+            secondsInput.disabled = true;
         }
-        return displayCount;
-    }
 
-
-    // 紀錄測試結果
-    function logTestResult(result) {
-        const newEntry = {
-            count: testCount + 1,
-            result: result,
-            reason: '',
-            deleted: false
-        };
-
-        testResults.push(newEntry);
-        updateTestResults();
-
-    }
-
-    function updateTestResults() {
-         // Reset the counters
-        testCount = 0;
-        passCount = 0;
-        failCount = 0;
-
-        // Clear the table body
-        resultsTableBody.innerHTML = '';
-
-        // Repopulate the table with the filtered testResults
-        let displayCount = 0;
-        testResults.forEach((item, index) => {
-            if (!item.deleted) {
-                displayCount++;
-                const row = resultsTableBody.insertRow();
-
-                const cellCount = row.insertCell(0);
-                cellCount.textContent = displayCount;
-
-                const cellResult = row.insertCell(1);
-                cellResult.textContent = item.result;
-                cellResult.classList.add(item.result.toLowerCase());
-
-                const cellReason = row.insertCell(2);
-                let reasonInput = '';
-                if (item.result === 'Fail') {
-                    reasonInput = `<input type="text" class="fail-reason" placeholder="輸入 Fail 原因" onchange="app.updateReason(${index}, this.value)">`;
-                }
-                cellReason.innerHTML = reasonInput;
-
-                const cellAction = row.insertCell(3);
-                cellAction.innerHTML = `<button onclick="app.correctResult(${index})">更正</button>
-                                  <button onclick="app.deleteResult(${index})">刪除</button>`;
-
-            }
-        });
-          // Recalculate the counts after repopulating the table
-        recalculateCounts();
-        updateReportTable();
-    }
-
-    // 刪除指定 index 的測試結果
-    function deleteResult(index) {
-        testResults[index] = {...testResults[index], deleted: true};
-        updateTestResults();
-    }
-
-    // 更正測試結果
-    function correctResult(index) {
-        const newResult = prompt("請輸入正確的結果 (Pass 或 Fail):").trim();
-        if (newResult && (newResult.toLowerCase() === 'pass' || newResult.toLowerCase() === 'fail')) {
-            testResults[index] = {...testResults[index], result: newResult, reason:''};
-            updateTestResults();
-        } else {
-            alert("輸入的結果無效。");
+        function stopTimer() {
+            clearInterval(timerInterval);
+            // 啟用輸入框
+            hoursInput.disabled = false;
+            minutesInput.disabled = false;
+            secondsInput.disabled = false;
         }
-    }
 
-    // 重新計算所有總數
-     function recalculateCounts() {
-        passCount = 0;
-        failCount = 0;
-        testCount = 0;
+        function resetTimer() {
+            stopTimer();
+            timeLeft = 0;
+            updateTimerDisplay();
 
-        testResults.forEach(item => {
-            if (!item.deleted) {
-                testCount++;
-                if (item.result === 'Pass') {
-                    passCount++;
-                } else {
-                    failCount++;
-                }
+            // 啟用輸入框並清除值
+            hoursInput.disabled = false;
+            minutesInput.disabled = false;
+            secondsInput.disabled = false;
+            hoursInput.value = 0;
+            minutesInput.value = 0;
+            secondsInput.value = 0;
+            stopSound(); // 重置計時器時停止音效
+        }
+
+        function updateTimer() {
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                timerDisplay.textContent = "時間到！";
+                // 啟用輸入框
+                hoursInput.disabled = false;
+                minutesInput.disabled = false;
+                secondsInput.disabled = false;
+
+                // 播放音效
+                playSound();
+
+                return;
             }
-        });
-        updateSummary();
-    }
 
-    return {
-        logTestResult,
-        correctResult,
-        updateReason,
-        deleteResult,
+            updateTimerDisplay();
+            timeLeft--;
+        }
 
-    };
-})();
-</script>
+        function updateTimerDisplay() {
+            const hours = Math.floor(timeLeft / 3600);
+            const minutes = Math.floor((timeLeft % 3600) / 60);
+            const seconds = timeLeft % 60;
+
+            const formattedTime = pad(hours) + ":" + pad(minutes) + ":" + pad(seconds);
+            timerDisplay.textContent = formattedTime;
+        }
+
+        function pad(number) {
+            return (number < 10) ? "0" + number : number;
+        }
+
+        function playSound() {
+            alarmSound.currentTime = 0; // 重置播放時間
+            alarmSound.play();
+            soundPlaying = true; // 設定音效正在播放的標記
+        }
+
+        function stopSound() {
+            alarmSound.pause(); // 停止播放
+            alarmSound.currentTime = 0; // 重置播放時間
+            soundPlaying = false; // 設定音效已停止播放的標記
+        }
+
+        function addTestItem() {
+            const testItemName = newTestItemInput.value.trim();
+            if (testItemName === "") {
+                alert("請輸入測試項目名稱");
+                return;
+            }
+
+            const testItemDiv = document.createElement('div');
+            testItemDiv.classList.add('test-item');
+            testItemDiv.dataset.testCount = 0; // 初始化測試次數
+            testItemDiv.dataset.passCount = 0; // 初始化通過次數
+            testItemDiv.dataset.failCount = 0; // 初始化失敗次數
+
+            testItemDiv.innerHTML = `
+                <span>${testItemName}</span>
+                <div>
+                    <button onclick="logTestResult(this.parentNode.parentNode, 'Pass')">PASS</button>
+                    <button onclick="logTestResult(this.parentNode.parentNode, 'Fail')">FAIL</button>
+                </div>
+                <span class="test-count">測試次數: 0</span>
+                <div class="summary">
+                    <span class="pass-label">PASS: 0</span>
+                    <span class="fail-label">FAIL: 0</span>
+                </div>
+            `;
+            testItemsContainer.appendChild(testItemDiv);
+            newTestItemInput.value = ""; // 清空輸入框
+        }
+
+        function logTestResult(testItemDiv, result) {
+            const resultSpan = document.createElement('span');
+            resultSpan.classList.add('result', result.toLowerCase());
+            resultSpan.textContent = result;
+
+            // 檢查是否有舊的結果並移除
+            const existingResult = testItemDiv.querySelector('.result');
+            if (existingResult) {
+                existingResult.remove();
+            }
+
+            // 新增結果
+            testItemDiv.appendChild(resultSpan);
+
+            // 更新測試次數
+            let testCount = parseInt(testItemDiv.dataset.testCount) + 1;
+            testItemDiv.dataset.testCount = testCount;
+            testItemDiv.querySelector('.test-count').textContent = `測試次數: ${testCount}`;
+
+            // 更新個別總計
+            let passCount = parseInt(testItemDiv.dataset.passCount);
+            let failCount = parseInt(testItemDiv.dataset.failCount);
+
+            if (result === 'Pass') {
+                passCount++;
+                testItemDiv.dataset.passCount = passCount;
+            } else {
+                failCount++;
+                testItemDiv.dataset.failCount = failCount;
+            }
+
+            updateSummary(testItemDiv);
+        }
+
+        function updateSummary(testItemDiv) {
+            const passCount = testItemDiv.dataset.passCount;
+            const failCount = testItemDiv.dataset.failCount;
+            const summaryDiv = testItemDiv.querySelector('.summary');
+            summaryDiv.innerHTML = `<span class="pass-label">PASS: ${passCount}</span> <span class="fail-label">FAIL: ${failCount}</span>`;
+        }
+    </script>
 </body>
 </html>
