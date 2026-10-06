@@ -18,8 +18,8 @@
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             padding: 30px;
-            width: 95%; /* 調整容器寬度 */
-            max-width: 1400px; /* 設定最大寬度 */
+            width: 95%;
+            max-width: 1400px;
         }
 
         h1 {
@@ -42,7 +42,7 @@
         }
 
         input[type="text"] {
-            width: 200px; /* 調整輸入框寬度 */
+            width: 200px;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 5px;
@@ -54,12 +54,12 @@
             background-color: #007bff;
             color: #fff;
             border: none;
-            padding: 10px 20px;
+            padding: 8px 15px;
             font-size: 0.9em;
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s;
-            margin-left: 5px;
+            margin: 2px;
         }
 
         button:hover {
@@ -74,20 +74,35 @@
         }
 
         .test-item {
-            width: calc(25% - 10px); /* 每列顯示四個項目，並減去間距 */
+            width: calc(25% - 10px);
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
             align-items: flex-start;
-            padding: 10px;
+            padding: 15px;
             border: 1px solid #ddd;
             border-radius: 5px;
             margin: 5px;
             box-sizing: border-box;
+            background-color: #fafafa;
+        }
+
+        .test-item > span:first-child {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+
+        .timer-display {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin: 8px 0;
         }
 
         .result {
             font-weight: bold;
+            margin-top: 5px;
         }
 
         .pass {
@@ -99,16 +114,18 @@
         }
 
         .test-count {
-            margin-left: 10px;
+            margin-top: 5px;
             font-size: 0.9em;
             color: #777;
         }
 
         .summary {
-            margin-top: 10px;
-            padding: 8px;
+            margin-top: 8px;
+            padding: 6px;
             border-radius: 5px;
             text-align: left;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .summary .pass-label {
@@ -124,10 +141,8 @@
             background-color: #f8d7da;
             padding: 3px 6px;
             border-radius: 5px;
-            margin-left: 5px;
         }
 
-        /* 新增的 Producer 樣式 */
         .producer {
             margin-top: 20px;
             font-size: 0.8em;
@@ -150,7 +165,6 @@
             <!-- 測試項目將會新增在此 -->
         </div>
 
-        <!-- 新增的 Producer 資訊 -->
         <div class="producer">
             <p>Producer: Ren Liao</p>
         </div>
@@ -159,6 +173,27 @@
     <script>
         const testItemsContainer = document.getElementById('test-items-container');
         const newTestItemInput = document.getElementById('new-test-item');
+
+        // 使用 Web Audio API 產生提示音效（不需外部音檔，支援 GitHub Pages）
+        function playBeep() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // 頻率 800Hz
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.3); // 鳴響 0.3 秒
+            } catch (e) {
+                console.log("音效播放失敗或瀏覽器未授權", e);
+            }
+        }
 
         function addTestItem() {
             const testItemName = newTestItemInput.value.trim();
@@ -169,13 +204,15 @@
 
             const testItemDiv = document.createElement('div');
             testItemDiv.classList.add('test-item');
-            testItemDiv.dataset.testCount = 0; // 初始化測試次數
-            testItemDiv.dataset.passCount = 0; // 初始化通過次數
-            testItemDiv.dataset.failCount = 0; // 初始化失敗次數
+            testItemDiv.dataset.testCount = 0; 
+            testItemDiv.dataset.passCount = 0; 
+            testItemDiv.dataset.failCount = 0; 
 
             testItemDiv.innerHTML = `
                 <span>${testItemName}</span>
+                <div class="timer-display">00:10</div>
                 <div>
+                    <button onclick="startTimer(this.parentNode.parentNode)">開始計時</button>
                     <button onclick="logTestResult(this.parentNode.parentNode, 'Pass')">PASS</button>
                     <button onclick="logTestResult(this.parentNode.parentNode, 'Fail')">FAIL</button>
                 </div>
@@ -186,7 +223,36 @@
                 </div>
             `;
             testItemsContainer.appendChild(testItemDiv);
-            newTestItemInput.value = ""; // 清空輸入框
+            newTestItemInput.value = ""; 
+        }
+
+        function startTimer(testItemDiv) {
+            // 如果該項目已經有正在跑的計時器，先清除它，避免重複點擊導致時間變快
+            if (testItemDiv.timerInterval) {
+                clearInterval(testItemDiv.timerInterval);
+            }
+
+            let timeLeft = 10; // 預設倒數 10 秒（可自行修改秒數）
+            const timerDisplay = testItemDiv.querySelector('.timer-display');
+            
+            updateTimerDisplay(timerDisplay, timeLeft);
+
+            testItemDiv.timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay(timerDisplay, timeLeft);
+
+                if (timeLeft <= 0) {
+                    clearInterval(testItemDiv.timerInterval);
+                    testItemDiv.timerInterval = null;
+                    playBeep(); // 播放音效
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay(timerDisplay, seconds) {
+            const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const secs = (seconds % 60).toString().padStart(2, '0');
+            timerDisplay.textContent = `${mins}:${secs}`;
         }
 
         function logTestResult(testItemDiv, result) {
@@ -194,23 +260,21 @@
             resultSpan.classList.add('result', result.toLowerCase());
             resultSpan.textContent = result;
 
-            // 檢查是否有舊的結果並移除
             const existingResult = testItemDiv.querySelector('.result');
             if (existingResult) {
                 existingResult.remove();
             }
 
-            // 新增結果
             testItemDiv.appendChild(resultSpan);
 
             // 更新測試次數
-            let testCount = parseInt(testItemDiv.dataset.testCount) + 1;
+            let testCount = parseInt(testItemDiv.dataset.testCount, 10) + 1;
             testItemDiv.dataset.testCount = testCount;
             testItemDiv.querySelector('.test-count').textContent = `測試次數: ${testCount}`;
 
-            // 更新個別總計
-            let passCount = parseInt(testItemDiv.dataset.passCount);
-            let failCount = parseInt(testItemDiv.dataset.failCount);
+            // 更新 Pass / Fail 次數
+            let passCount = parseInt(testItemDiv.dataset.passCount, 10) || 0;
+            let failCount = parseInt(testItemDiv.dataset.failCount, 10) || 0;
 
             if (result === 'Pass') {
                 passCount++;
