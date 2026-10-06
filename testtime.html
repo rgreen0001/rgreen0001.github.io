@@ -35,21 +35,28 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         label {
-            display: inline-block;
-            margin-right: 10px;
             font-weight: bold;
         }
 
-        input[type="text"] {
-            width: 200px;
+        input[type="text"], input[type="number"] {
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 5px;
             box-sizing: border-box;
             font-size: 16px;
+        }
+
+        input[type="text"] {
+            width: 200px;
+        }
+
+        input[type="number"] {
+            width: 90px;
         }
 
         button {
@@ -66,6 +73,20 @@
 
         button:hover {
             background-color: #0056b3;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+        }
+        .btn-danger:hover {
+            background-color: #a71d2a;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+        }
+        .btn-success:hover {
+            background-color: #1e7e34;
         }
 
         #test-items-container {
@@ -92,14 +113,21 @@
         .test-item > span:first-child {
             font-weight: bold;
             font-size: 1.1em;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
         }
 
         .timer-display {
-            font-size: 1.2em;
+            font-size: 1.3em;
             font-weight: bold;
             color: #333;
-            margin: 8px 0;
+            margin: 5px 0;
+            font-family: monospace;
+        }
+
+        .button-group {
+            margin: 5px 0;
+            display: flex;
+            flex-wrap: wrap;
         }
 
         .result {
@@ -159,7 +187,9 @@
 
         <div class="input-group">
             <label for="new-test-item">新增測試項目:</label>
-            <input type="text" id="new-test-item" placeholder="請輸入測試項目名稱">
+            <input type="text" id="new-test-item" placeholder="請輸入項目名稱">
+            <label for="test-duration">倒數秒數:</label>
+            <input type="number" id="test-duration" value="10" min="1">
             <button onclick="addTestItem()">新增</button>
         </div>
 
@@ -175,8 +205,8 @@
     <script>
         const testItemsContainer = document.getElementById('test-items-container');
         const newTestItemInput = document.getElementById('new-test-item');
+        const testDurationInput = document.getElementById('test-duration');
         
-        // 全域計時器字典，確保每個項目的計時器獨立且可被精準清除
         const activeTimers = {};
         let itemCounter = 0;
 
@@ -203,8 +233,15 @@
 
         function addTestItem() {
             const testItemName = newTestItemInput.value.trim();
+            let duration = parseInt(testDurationInput.value, 10);
+
             if (testItemName === "") {
                 alert("請輸入測試項目名稱");
+                return;
+            }
+
+            if (isNaN(duration) || duration <= 0) {
+                alert("請輸入有效的倒數秒數");
                 return;
             }
 
@@ -214,17 +251,26 @@
             const testItemDiv = document.createElement('div');
             testItemDiv.classList.add('test-item');
             testItemDiv.dataset.itemId = currentId;
+            testItemDiv.dataset.originalTime = duration; // 儲存初始設定秒數
+            testItemDiv.dataset.timeLeft = duration; // 儲存目前剩餘秒數
             testItemDiv.dataset.testCount = 0; 
             testItemDiv.dataset.passCount = 0; 
             testItemDiv.dataset.failCount = 0; 
 
+            // 格式化顯示時間 (MM:SS)
+            const initialDisplay = formatTime(duration);
+
             testItemDiv.innerHTML = `
                 <span>${testItemName}</span>
-                <div class="timer-display">00:10</div>
-                <div>
-                    <button onclick="startTimer(${currentId}, this.parentNode.parentNode)">開始計時</button>
-                    <button onclick="logTestResult(this.parentNode.parentNode, 'Pass')">PASS</button>
-                    <button onclick="logTestResult(this.parentNode.parentNode, 'Fail')">FAIL</button>
+                <div class="timer-display">${initialDisplay}</div>
+                <div class="button-group">
+                    <button onclick="startTimer(${currentId}, this.parentNode.parentNode)">開始</button>
+                    <button onclick="stopTimer(${currentId}, this.parentNode.parentNode)" class="btn-danger">停止</button>
+                    <button onclick="resetTimer(${currentId}, this.parentNode.parentNode)" class="btn-danger" style="background-color: #6c757d;">重設</button>
+                </div>
+                <div class="button-group">
+                    <button onclick="logTestResult(this.parentNode.parentNode, 'Pass')" class="btn-success">PASS</button>
+                    <button onclick="logTestResult(this.parentNode.parentNode, 'Fail')" class="btn-danger">FAIL</button>
                 </div>
                 <span class="test-count">測試次數: 0</span>
                 <div class="summary">
@@ -236,35 +282,52 @@
             newTestItemInput.value = ""; 
         }
 
+        // 開始倒數計時
         function startTimer(id, testItemDiv) {
-            // 如果該項目已經有正在執行的計時器，強制清除它，避免重複點擊加速
-            if (activeTimers[id]) {
-                clearInterval(activeTimers[id]);
-                activeTimers[id] = null;
-            }
+            if (activeTimers[id]) return; // 避免重複執行加速
 
-            let timeLeft = 10; // 倒數 10 秒（若需更改秒數可在此修改）
-            const timerDisplay = testItemDiv.querySelector('.timer-display');
-            
-            updateTimerDisplay(timerDisplay, timeLeft);
+            let timeLeft = parseInt(testItemDiv.dataset.timeLeft, 10);
+            if (timeLeft <= 0) return;
 
-            // 啟動新計時器並記錄到全域字典中
             activeTimers[id] = setInterval(() => {
-                timeLeft--;
-                updateTimerDisplay(timerDisplay, timeLeft);
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    testItemDiv.dataset.timeLeft = timeLeft;
+                    updateTimerDisplay(testItemDiv.querySelector('.timer-display'), timeLeft);
+                }
 
                 if (timeLeft <= 0) {
                     clearInterval(activeTimers[id]);
                     activeTimers[id] = null;
-                    playBeep(); // 播放音效
+                    playBeep(); // 時間到播放提示音
                 }
             }, 1000);
         }
 
-        function updateTimerDisplay(timerDisplay, seconds) {
+        // 停止計時
+        function stopTimer(id, testItemDiv) {
+            if (activeTimers[id]) {
+                clearInterval(activeTimers[id]);
+                activeTimers[id] = null;
+            }
+        }
+
+        // 重設計時器回該項目原本設定的秒數
+        function resetTimer(id, testItemDiv) {
+            stopTimer(id, testItemDiv);
+            const originalTime = parseInt(testItemDiv.dataset.originalTime, 10);
+            testItemDiv.dataset.timeLeft = originalTime;
+            updateTimerDisplay(testItemDiv.querySelector('.timer-display'), originalTime);
+        }
+
+        function formatTime(seconds) {
             const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
             const secs = (seconds % 60).toString().padStart(2, '0');
-            timerDisplay.textContent = `${mins}:${secs}`;
+            return `${mins}:${secs}`;
+        }
+
+        function updateTimerDisplay(timerDisplay, seconds) {
+            timerDisplay.textContent = formatTime(seconds);
         }
 
         function logTestResult(testItemDiv, result) {
