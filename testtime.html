@@ -209,29 +209,40 @@
         
         const activeTimers = {};
         let itemCounter = 0;
+        let audioCtx = null;
 
-        // 使用 Web Audio API 產生提示音效（支援 GitHub Pages，無需額外音檔）
+        // 確保點擊網頁任何按鈕或互動時初始化音效權限（解決瀏覽器擋音效問題）
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
         function playBeep() {
             try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                initAudio();
                 const oscillator = audioCtx.createOscillator();
                 const gainNode = audioCtx.createGain();
 
                 oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // 頻率 800Hz
-                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); 
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
 
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
 
                 oscillator.start();
-                oscillator.stop(audioCtx.currentTime + 0.3); // 鳴響 0.3 秒
+                oscillator.stop(audioCtx.currentTime + 0.4); 
             } catch (e) {
-                console.log("音效播放失敗或瀏覽器未授權", e);
+                console.log("音效播放失敗", e);
             }
         }
 
         function addTestItem() {
+            initAudio();
             const testItemName = newTestItemInput.value.trim();
             let duration = parseInt(testDurationInput.value, 10);
 
@@ -251,11 +262,11 @@
             const testItemDiv = document.createElement('div');
             testItemDiv.classList.add('test-item');
             testItemDiv.dataset.itemId = currentId;
-            testItemDiv.dataset.originalTime = duration; // 儲存初始設定的秒數
-            testItemDiv.dataset.timeLeft = duration; // 儲存目前剩餘秒數
-            testItemDiv.dataset.testCount = 0; 
+            testItemDiv.dataset.originalTime = duration; 
+            testItemDiv.dataset.timeLeft = duration; 
             testItemDiv.dataset.passCount = 0; 
             testItemDiv.dataset.failCount = 0; 
+            testItemDiv.dataset.lastResult = ""; // 記錄上一次的結果 ('Pass' 或 'Fail')
 
             const initialDisplay = formatTime(duration);
 
@@ -281,9 +292,9 @@
             newTestItemInput.value = ""; 
         }
 
-        // 開始倒數計時
         function startTimer(id, testItemDiv) {
-            if (activeTimers[id]) return; // 避免重複執行加速
+            initAudio();
+            if (activeTimers[id]) return; 
 
             let timeLeft = parseInt(testItemDiv.dataset.timeLeft, 10);
             if (timeLeft <= 0) return;
@@ -298,12 +309,11 @@
                 if (timeLeft <= 0) {
                     clearInterval(activeTimers[id]);
                     activeTimers[id] = null;
-                    playBeep(); // 時間到自動播放提示音
+                    playBeep(); // 時間到播放聲音
                 }
             }, 1000);
         }
 
-        // 停止計時
         function stopTimer(id, testItemDiv) {
             if (activeTimers[id]) {
                 clearInterval(activeTimers[id]);
@@ -311,7 +321,6 @@
             }
         }
 
-        // 重設計時器回該項目原本設定的秒數
         function resetTimer(id, testItemDiv) {
             stopTimer(id, testItemDiv);
             const originalTime = parseInt(testItemDiv.dataset.originalTime, 10);
@@ -330,33 +339,44 @@
         }
 
         function logTestResult(testItemDiv, result) {
-            const resultSpan = document.createElement('span');
-            resultSpan.classList.add('result', result.toLowerCase());
-            resultSpan.textContent = result;
+            initAudio();
+            let passCount = parseInt(testItemDiv.dataset.passCount, 10) || 0;
+            let failCount = parseInt(testItemDiv.dataset.failCount, 10) || 0;
+            let lastResult = testItemDiv.dataset.lastResult;
 
+            // 如果之前有按過結果，且點了不同的按鈕（代表按錯要修正），則把上一次的次數扣掉
+            if (lastResult === 'Pass') {
+                passCount = Math.max(0, passCount - 1);
+            } else if (lastResult === 'Fail') {
+                failCount = Math.max(0, failCount - 1);
+            }
+
+            // 加上新的結果
+            if (result === 'Pass') {
+                passCount++;
+                testItemDiv.dataset.lastResult = 'Pass';
+            } else {
+                failCount++;
+                testItemDiv.dataset.lastResult = 'Fail';
+            }
+
+            testItemDiv.dataset.passCount = passCount;
+            testItemDiv.dataset.failCount = failCount;
+
+            // 總測試次數就是 PASS + FAIL 的總和
+            let totalTestCount = passCount + failCount;
+            testItemDiv.dataset.testCount = totalTestCount;
+            testItemDiv.querySelector('.test-count').textContent = `測試次數: ${totalTestCount}`;
+
+            // 更新畫面上的 PASS/FAIL 結果標籤
             const existingResult = testItemDiv.querySelector('.result');
             if (existingResult) {
                 existingResult.remove();
             }
-
+            const resultSpan = document.createElement('span');
+            resultSpan.classList.add('result', result.toLowerCase());
+            resultSpan.textContent = result;
             testItemDiv.appendChild(resultSpan);
-
-            // 更新測試次數
-            let testCount = parseInt(testItemDiv.dataset.testCount, 10) + 1;
-            testItemDiv.dataset.testCount = testCount;
-            testItemDiv.querySelector('.test-count').textContent = `測試次數: ${testCount}`;
-
-            // 更新 Pass / Fail 次數
-            let passCount = parseInt(testItemDiv.dataset.passCount, 10) || 0;
-            let failCount = parseInt(testItemDiv.dataset.failCount, 10) || 0;
-
-            if (result === 'Pass') {
-                passCount++;
-                testItemDiv.dataset.passCount = passCount;
-            } else {
-                failCount++;
-                testItemDiv.dataset.failCount = failCount;
-            }
 
             updateSummary(testItemDiv);
         }
