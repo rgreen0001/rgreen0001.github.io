@@ -210,7 +210,7 @@
         const activeTimers = {};
         let itemCounter = 0;
 
-        // 使用 Web Audio API 產生提示音效（支援 GitHub Pages）
+        // 使用 Web Audio API 產生提示音效（支援 GitHub Pages，無需額外音檔）
         function playBeep() {
             try {
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -218,14 +218,14 @@
                 const gainNode = audioCtx.createGain();
 
                 oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); 
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // 頻率 800Hz
                 gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
 
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
 
                 oscillator.start();
-                oscillator.stop(audioCtx.currentTime + 0.3); 
+                oscillator.stop(audioCtx.currentTime + 0.3); // 鳴響 0.3 秒
             } catch (e) {
                 console.log("音效播放失敗或瀏覽器未授權", e);
             }
@@ -251,13 +251,12 @@
             const testItemDiv = document.createElement('div');
             testItemDiv.classList.add('test-item');
             testItemDiv.dataset.itemId = currentId;
-            testItemDiv.dataset.originalTime = duration; // 儲存初始設定秒數
+            testItemDiv.dataset.originalTime = duration; // 儲存初始設定的秒數
             testItemDiv.dataset.timeLeft = duration; // 儲存目前剩餘秒數
             testItemDiv.dataset.testCount = 0; 
             testItemDiv.dataset.passCount = 0; 
             testItemDiv.dataset.failCount = 0; 
 
-            // 格式化顯示時間 (MM:SS)
             const initialDisplay = formatTime(duration);
 
             testItemDiv.innerHTML = `
@@ -299,7 +298,7 @@
                 if (timeLeft <= 0) {
                     clearInterval(activeTimers[id]);
                     activeTimers[id] = null;
-                    playBeep(); // 時間到播放提示音
+                    playBeep(); // 時間到自動播放提示音
                 }
             }, 1000);
         }
