@@ -14,6 +14,18 @@
             margin: 0;
         }
 
+        /* 解鎖音效提示橫幅 */
+        #audio-unlock-banner {
+            background-color: #ff9800;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            width: 100%;
+            font-weight: bold;
+            cursor: pointer;
+            display: block;
+        }
+
         .container {
             background-color: #fff;
             border-radius: 10px;
@@ -22,6 +34,7 @@
             width: 95%;
             max-width: 1400px;
             box-sizing: border-box;
+            margin-top: 20px;
         }
 
         h1 {
@@ -190,6 +203,12 @@
     </style>
 </head>
 <body>
+
+    <!-- 點擊此橫幅即可解鎖瀏覽器音效限制 -->
+    <div id="audio-unlock-banner" onclick="unlockAudio()">
+        🔊 點擊此處解鎖網頁音效（首次使用必點）
+    </div>
+
     <div class="container">
         <h1>測試計算機</h1>
 
@@ -210,7 +229,7 @@
         </div>
     </div>
 
-    <!-- 內建音效元素（使用 Base64 編碼的短逼聲，保證 GitHub Pages 讀得到且有聲音） -->
+    <!-- 內建音效元素 -->
     <audio id="beep-sound" preload="auto">
         <source src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUcvT19hYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYA==" type="audio/wav">
     </audio>
@@ -223,15 +242,33 @@
         
         const activeTimers = {};
         let itemCounter = 0;
+        let isAudioUnlocked = false;
+
+        // 使用者點擊橫幅解鎖音效
+        function unlockAudio() {
+            beepAudio.play().then(() => {
+                beepAudio.pause();
+                beepAudio.currentTime = 0;
+                isAudioUnlocked = true;
+                const banner = document.getElementById('audio-unlock-banner');
+                banner.style.backgroundColor = '#28a745';
+                banner.textContent = '✅ 網頁音效已成功解鎖！';
+                setTimeout(() => {
+                    banner.style.display = 'none'; // 3秒後自動隱藏提示條
+                }, 3000);
+            }).catch(e => {
+                alert("解鎖失敗，請再點擊一次");
+            });
+        }
 
         function playBeep() {
             try {
                 beepAudio.currentTime = 0;
                 beepAudio.play().catch(e => {
-                    console.log("瀏覽器阻擋自動播放音效", e);
+                    console.log("播放被阻擋", e);
                 });
             } catch (e) {
-                console.log("播放音效發生錯誤", e);
+                console.log("發生錯誤", e);
             }
         }
 
@@ -259,7 +296,7 @@
             testItemDiv.dataset.timeLeft = duration; 
             testItemDiv.dataset.passCount = 0; 
             testItemDiv.dataset.failCount = 0; 
-            testItemDiv.dataset.lastAction = ""; // 追蹤最後一次按的是 'Pass' 還是 'Fail'
+            testItemDiv.dataset.lastAction = ""; 
 
             const initialDisplay = formatTime(duration);
 
@@ -331,7 +368,6 @@
             timerDisplay.textContent = formatTime(seconds);
         }
 
-        // 記錄 PASS 或 FAIL
         function logTestResult(testItemDiv, result) {
             let passCount = parseInt(testItemDiv.dataset.passCount, 10) || 0;
             let failCount = parseInt(testItemDiv.dataset.failCount, 10) || 0;
@@ -349,7 +385,6 @@
             updateCountsAndDisplay(testItemDiv, result);
         }
 
-        // 修正/撤銷功能（如果剛才按錯，點擊此按鈕可以立刻扣掉最後一次的紀錄）
         function undoLastResult(testItemDiv) {
             let passCount = parseInt(testItemDiv.dataset.passCount, 10) || 0;
             let failCount = parseInt(testItemDiv.dataset.failCount, 10) || 0;
@@ -366,9 +401,8 @@
                 return;
             }
 
-            testItemDiv.dataset.lastAction = ""; // 清空追蹤
+            testItemDiv.dataset.lastAction = ""; 
             
-            // 更新畫面
             let totalTestCount = passCount + failCount;
             testItemDiv.dataset.testCount = totalTestCount;
             testItemDiv.querySelector('.test-count').textContent = `測試次數: ${totalTestCount}`;
