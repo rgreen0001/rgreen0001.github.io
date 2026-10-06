@@ -14,18 +14,6 @@
             margin: 0;
         }
 
-        /* 解鎖音效提示橫幅 */
-        #audio-unlock-banner {
-            background-color: #ff9800;
-            color: white;
-            text-align: center;
-            padding: 10px;
-            width: 100%;
-            font-weight: bold;
-            cursor: pointer;
-            display: block;
-        }
-
         .container {
             background-color: #fff;
             border-radius: 10px;
@@ -102,14 +90,6 @@
             background-color: #1e7e34;
         }
 
-        .btn-warning {
-            background-color: #ffc107;
-            color: #333;
-        }
-        .btn-warning:hover {
-            background-color: #e0a800;
-        }
-
         #test-items-container {
             display: flex;
             flex-wrap: wrap;
@@ -154,6 +134,7 @@
         .result {
             font-weight: bold;
             margin-top: 5px;
+            font-size: 1.1em;
         }
 
         .pass {
@@ -204,11 +185,6 @@
 </head>
 <body>
 
-    <!-- 點擊此橫幅即可解鎖瀏覽器音效限制 -->
-    <div id="audio-unlock-banner" onclick="unlockAudio()">
-        🔊 點擊此處解鎖網頁音效（首次使用必點）
-    </div>
-
     <div class="container">
         <h1>測試計算機</h1>
 
@@ -229,50 +205,50 @@
         </div>
     </div>
 
-    <!-- 內建音效元素 -->
-    <audio id="beep-sound" preload="auto">
-        <source src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUcvT19hYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYA==" type="audio/wav">
-    </audio>
-
     <script>
         const testItemsContainer = document.getElementById('test-items-container');
         const newTestItemInput = document.getElementById('new-test-item');
         const testDurationInput = document.getElementById('test-duration');
-        const beepAudio = document.getElementById('beep-sound');
         
         const activeTimers = {};
         let itemCounter = 0;
-        let isAudioUnlocked = false;
+        let audioCtx = null;
 
-        // 使用者點擊橫幅解鎖音效
-        function unlockAudio() {
-            beepAudio.play().then(() => {
-                beepAudio.pause();
-                beepAudio.currentTime = 0;
-                isAudioUnlocked = true;
-                const banner = document.getElementById('audio-unlock-banner');
-                banner.style.backgroundColor = '#28a745';
-                banner.textContent = '✅ 網頁音效已成功解鎖！';
-                setTimeout(() => {
-                    banner.style.display = 'none'; // 3秒後自動隱藏提示條
-                }, 3000);
-            }).catch(e => {
-                alert("解鎖失敗，請再點擊一次");
-            });
+        // 初始化或解鎖 Web Audio 引擎
+        function initAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
         }
 
+        // 播放內建合成蜂鳴聲（100% 成功發聲，不需音檔）
         function playBeep() {
             try {
-                beepAudio.currentTime = 0;
-                beepAudio.play().catch(e => {
-                    console.log("播放被阻擋", e);
-                });
+                initAudioContext();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // 頻率 880Hz (A5音高)
+                
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.5); // 鳴響 0.5 秒
             } catch (e) {
-                console.log("發生錯誤", e);
+                console.log("音效播放失敗", e);
             }
         }
 
         function addTestItem() {
+            initAudioContext();
             const testItemName = newTestItemInput.value.trim();
             let duration = parseInt(testDurationInput.value, 10);
 
@@ -296,7 +272,7 @@
             testItemDiv.dataset.timeLeft = duration; 
             testItemDiv.dataset.passCount = 0; 
             testItemDiv.dataset.failCount = 0; 
-            testItemDiv.dataset.lastAction = ""; 
+            testItemDiv.dataset.history = ""; // 記錄上一次的結果 ('Pass' 或 'Fail')
 
             const initialDisplay = formatTime(duration);
 
@@ -309,9 +285,8 @@
                     <button onclick="resetTimer(${currentId}, this.parentNode.parentNode)" class="btn-danger" style="background-color: #6c757d;">重設</button>
                 </div>
                 <div class="button-group">
-                    <button onclick="logTestResult(this.parentNode.parentNode, 'Pass')" class="btn-success">PASS</button>
-                    <button onclick="logTestResult(this.parentNode.parentNode, 'Fail')" class="btn-danger">FAIL</button>
-                    <button onclick="undoLastResult(this.parentNode.parentNode)" class="btn-warning" title="按錯可點此還原">修正/撤銷</button>
+                    <button onclick="setResult(this.parentNode.parentNode, 'Pass')" class="btn-success">PASS</button>
+                    <button onclick="setResult(this.parentNode.parentNode, 'Fail')" class="btn-danger">FAIL</button>
                 </div>
                 <span class="test-count">測試次數: 0</span>
                 <div class="summary">
@@ -324,6 +299,7 @@
         }
 
         function startTimer(id, testItemDiv) {
+            initAudioContext();
             if (activeTimers[id]) return; 
 
             let timeLeft = parseInt(testItemDiv.dataset.timeLeft, 10);
@@ -339,7 +315,7 @@
                 if (timeLeft <= 0) {
                     clearInterval(activeTimers[id]);
                     activeTimers[id] = null;
-                    playBeep(); // 播放音效
+                    playBeep(); // 時間到播放內建電子音
                 }
             }, 1000);
         }
@@ -368,77 +344,48 @@
             timerDisplay.textContent = formatTime(seconds);
         }
 
-        function logTestResult(testItemDiv, result) {
+        // 設定或修改結果（若按錯可以直接點另一個按鈕修正）
+        function setResult(testItemDiv, newResult) {
+            initAudioContext();
             let passCount = parseInt(testItemDiv.dataset.passCount, 10) || 0;
             let failCount = parseInt(testItemDiv.dataset.failCount, 10) || 0;
+            let lastResult = testItemDiv.dataset.history;
 
-            if (result === 'Pass') {
+            // 如果之前有記錄過結果，先把它扣掉（實現修改/修正功能）
+            if (lastResult === 'Pass') {
+                passCount = Math.max(0, passCount - 1);
+            } else if (lastResult === 'Fail') {
+                failCount = Math.max(0, failCount - 1);
+            }
+
+            // 加入這次的新結果
+            if (newResult === 'Pass') {
                 passCount++;
-                testItemDiv.dataset.passCount = passCount;
-                testItemDiv.dataset.lastAction = 'Pass';
+                testItemDiv.dataset.history = 'Pass';
             } else {
                 failCount++;
-                testItemDiv.dataset.failCount = failCount;
-                testItemDiv.dataset.lastAction = 'Fail';
+                testItemDiv.dataset.history = 'Fail';
             }
 
-            updateCountsAndDisplay(testItemDiv, result);
-        }
+            testItemDiv.dataset.passCount = passCount;
+            testItemDiv.dataset.failCount = failCount;
 
-        function undoLastResult(testItemDiv) {
-            let passCount = parseInt(testItemDiv.dataset.passCount, 10) || 0;
-            let failCount = parseInt(testItemDiv.dataset.failCount, 10) || 0;
-            let lastAction = testItemDiv.dataset.lastAction;
+            // 計算總測試次數
+            let totalCount = passCount + failCount;
+            testItemDiv.dataset.testCount = totalCount;
+            testItemDiv.querySelector('.test-count').textContent = `測試次數: ${totalCount}`;
 
-            if (lastAction === 'Pass' && passCount > 0) {
-                passCount--;
-                testItemDiv.dataset.passCount = passCount;
-            } else if (lastAction === 'Fail' && failCount > 0) {
-                failCount--;
-                testItemDiv.dataset.failCount = failCount;
-            } else {
-                alert("目前沒有最近的紀錄可以撤銷！");
-                return;
+            // 顯示目前最新的結果標籤
+            let resultSpan = testItemDiv.querySelector('.result');
+            if (!resultSpan) {
+                resultSpan = document.createElement('span');
+                resultSpan.classList.add('result');
+                testItemDiv.appendChild(resultSpan);
             }
+            resultSpan.className = `result ${newResult.toLowerCase()}`;
+            resultSpan.textContent = newResult;
 
-            testItemDiv.dataset.lastAction = ""; 
-            
-            let totalTestCount = passCount + failCount;
-            testItemDiv.dataset.testCount = totalTestCount;
-            testItemDiv.querySelector('.test-count').textContent = `測試次數: ${totalTestCount}`;
-
-            if (totalTestCount === 0) {
-                const existingResult = testItemDiv.querySelector('.result');
-                if (existingResult) existingResult.remove();
-            }
-
-            updateSummary(testItemDiv);
-        }
-
-        function updateCountsAndDisplay(testItemDiv, result) {
-            let passCount = parseInt(testItemDiv.dataset.passCount, 10) || 0;
-            let failCount = parseInt(testItemDiv.dataset.failCount, 10) || 0;
-            let totalTestCount = passCount + failCount;
-
-            testItemDiv.dataset.testCount = totalTestCount;
-            testItemDiv.querySelector('.test-count').textContent = `測試次數: ${totalTestCount}`;
-
-            const existingResult = testItemDiv.querySelector('.result');
-            if (existingResult) {
-                existingResult.remove();
-            }
-
-            const resultSpan = document.createElement('span');
-            resultSpan.classList.add('result', result.toLowerCase());
-            resultSpan.textContent = result;
-            testItemDiv.appendChild(resultSpan);
-
-            updateSummary(testItemDiv);
-        }
-
-        function updateSummary(testItemDiv) {
-            const passCount = testItemDiv.dataset.passCount;
-            const failCount = testItemDiv.dataset.failCount;
+            // 更新下方統計數據
             const summaryDiv = testItemDiv.querySelector('.summary');
             summaryDiv.innerHTML = `<span class="pass-label">PASS: ${passCount}</span> <span class="fail-label">FAIL: ${failCount}</span>`;
         }
